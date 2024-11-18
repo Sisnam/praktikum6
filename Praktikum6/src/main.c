@@ -12,10 +12,28 @@ static portTASK_FUNCTION_PROTO(vBlinkLed0, p_);
 static portTASK_FUNCTION_PROTO(vBlinkLed1, q_);
 static portTASK_FUNCTION_PROTO(vCounter, r_);
 static portTASK_FUNCTION_PROTO(vPushButton1, s_);
+static portTASK_FUNCTION_PROTO(vServo, t_);
 
 /* Define semaphore */
 SemaphoreHandle_t xSemaphore;
 uint16_t counter = 0;
+
+/* Inisiliasi Single Slope PWM */
+void PWM_Init(void)
+{
+	/* Set output pin untuk servo */
+	PORTC.DIR |= PIN0_bm;
+
+	/* Set Register */
+	TCC0.CTRLA = TC_CLKSEL_DIV8_gc;
+	TCC0.CTRLB = (PIN4_bm) | (PIN2_bm) | (PIN1_bm);
+	
+	/* Set Period PWM dimana Servo menggunakan 20ms(50Hz) */
+	TCC0.PER = 5000;
+
+	/* Set Compare Register value default untuk 0 derajat */
+	TCC0.CCA = 75;
+}
 
 int main (void)
 {
@@ -26,7 +44,7 @@ int main (void)
 	gfx_mono_init();
 	
 	gpio_set_pin_high(LCD_BACKLIGHT_ENABLE_PIN);
-	gfx_mono_draw_string("RTOS v10.2.1", 0, 0, &sysfont);
+	gfx_mono_draw_string("Sisnam+", 0, 0, &sysfont);
 
 	/* Create the task */
 	
@@ -34,6 +52,7 @@ int main (void)
 	xTaskCreate(vBlinkLed1, "", 1000, NULL, tskIDLE_PRIORITY + 2, NULL);	// higher priority
 	xTaskCreate(vPushButton1, "", 1000, NULL, tskIDLE_PRIORITY + 3, NULL);	// higher priority
 	xTaskCreate(vCounter, "", 1000, NULL, tskIDLE_PRIORITY, NULL);			// low priority
+	xTaskCreate(vServo, "", 1000, NULL, tskIDLE_PRIORITY + 4, NULL);        // highest priority
 	
 	/* Semaphore */
 	xSemaphore = xSemaphoreCreateBinary();
@@ -102,4 +121,20 @@ static portTASK_FUNCTION(vCounter, r_) {
 		
 		vTaskDelay(100/portTICK_PERIOD_MS);
 	}	
+}
+
+static portTASK_FUNCTION(vServo, t_) {
+	PWM_Init();
+	
+	while(1){
+		// Set Compare Register value default untuk 0 derajat
+		TCC0.CCA = 75;
+		
+		vTaskDelay(100/portTICK_PERIOD_MS);
+		
+		// Set Compare Register value default untuk 180 derajat
+		TCC0.CCA = 325;
+		
+		vTaskDelay(100/portTICK_PERIOD_MS);
+	}
 }
